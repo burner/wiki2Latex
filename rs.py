@@ -10,10 +10,12 @@ oneWordSubs = {"<br>":"\\\\"}
 subs = { "section":["==","==","\\section{","}"]
 ,"subsection":["===","===","\\subsection{","}"]
 ,"subsubsection":["====","====","\\subsubsection{","}"]
+,"paragraph":["=====","=====","\\paragraph{","}"]
 ,"boitalic":["\'\'\'\'\'","\'\'\'\'\'","\\texttt{\\textit{","}}"]
 ,"bold":["\'\'\'","\'\'\'","\\texttt{","}"]
 ,"ttverb":["<tt>\\verb","</tt>","\\texttt{\\verb","}"]
 ,"tt":["<tt>","</tt>","\\texttt{\\verb|","|}"]
+,"tt":["<math>","</math>","$","$"]
 ,"ref":["[[","]]","\\nameref{","}"]
 ,"code":["<code>","</code>","\\textit{\\verb|","|}"]
 ,"italic":["\'\'","\'\'","\\textit{","}"]}
@@ -267,6 +269,74 @@ def sourceReplace():
 		else:
 			idx+=1
 
+def tableChange():
+	global idx
+	global buf
+	idx = 0
+	while idx < len(buf):
+		line = buf[idx]
+		if line[:2] == "{|":
+			del buf[idx]
+			buf.insert(idx, "\\begin{tabular}{ } \\hline\n")
+			idx+=1
+			line = buf[idx]
+			last = False
+			while line[:2] != "|}":
+				print(line)
+				if line[:2] == "|-":
+					buf.insert(idx, "\\\\ \\hline\n")
+					idx+=1
+					last = False
+				else:
+					if last:	
+						buf.insert(idx,"& " + line[1:])
+					else:
+						buf.insert(idx,line[1:])
+
+					last = True
+					idx+=1
+				del buf[idx]
+				line = buf[idx]
+
+			del buf[idx]
+			buf.insert(idx, "\\end{tabular}\n")
+
+		idx+=1
+
+def exampleChange():
+	global idx
+	global buf
+	eList = []
+	idx = 0
+	while idx < len(buf):
+		line = buf[idx]
+		it = line.find("{{LaTeX/Example")
+		if it != -1:
+			eList.append("\\begin{tabular}\n")
+			eList.append("\\begin{verbatim}\n")
+			del buf[idx]
+			line = buf[idx]
+			it = line.find("}}")
+			while it == -1:
+				if -1 == line.find("render") or -1 == line.find("math"):
+					if -1 == line.find("render"):
+						eList.append("\\end{verbatim}\n")
+					if -1 == line.find("math"):
+						eList.append("$\n")
+				else:
+					eList.append(line)
+
+				del buf[idx]
+				if idx >= len(buf):
+					print(eList)
+					done()
+				line = buf[idx]
+
+			eList = []
+		else:
+			idx+=1
+	
+
 def subSingleBackslash():
 	global idx
 	global buf
@@ -337,9 +407,12 @@ def main():
 	print("after read file")
 
 	pre()
+	exampleChange()
 	removeVerbatim()
 	sourceReplace()
 	subSingleBackslash()
+	tableChange()
+	sub(subs["paragraph"])
 	sub(subs["subsubsection"])
 	sub(subs["subsection"])
 	sub(subs["section"])
