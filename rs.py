@@ -267,15 +267,26 @@ def sourceReplace():
 		else:
 			idx+=1
 
+def LatexLatex():
+	global idx
+	global buf
+	idx = 0
+	while idx < len(buf):
+		line = buf[idx]
+		new = re.sub(r"{{LaTeX/LaTeX|code=([\w{}\s]*)}}", "\\\\begin{verbatim} \1 \\\\end{verbatim}", line)
+		buf[idx] = line
+		idx+=1
+	
+
 def subSingleBackslash():
 	global idx
 	global buf
 	idx = 0
 	while idx < len(buf):
 		line = buf[idx]
-		new = re.sub(r"\\([^\s\",]+)", "\\\\verb|\\\\\g<1>|", line)
+		new = re.sub(r"[^>]\\([^\s\",]+)", "\\\\verb|\\\\\g<1>|", line)
 		while line != new:
-			new = re.sub(r"\\([^\s\",]+)", "\\\\verb|\\\\\g<1>|", line)
+			new = re.sub(r"[^>]\\([^\s\",]+)", "\\\\verb|\\\\\g<1>|", line)
 			line = new
 			print(line)
 
@@ -336,6 +347,7 @@ def main():
 	readFile()
 	print("after read file")
 
+	LatexLatex()
 	pre()
 	removeVerbatim()
 	sourceReplace()
