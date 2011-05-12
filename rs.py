@@ -10,16 +10,19 @@ oneWordSubs = {"<br>":"\\\\"}
 subs = { "section":["==","==","\\section{","}"]
 ,"subsection":["===","===","\\subsection{","}"]
 ,"subsubsection":["====","====","\\subsubsection{","}"]
+,"paragraph":["=====","=====","\\paragraph{","}"]
 ,"boitalic":["\'\'\'\'\'","\'\'\'\'\'","\\texttt{\\textit{","}}"]
 ,"bold":["\'\'\'","\'\'\'","\\texttt{","}"]
 ,"ttverb":["<tt>\\verb","</tt>","\\texttt{\\verb","}"]
 ,"tt":["<tt>","</tt>","\\texttt{\\verb|","|}"]
+,"tt":["<math>","</math>","$","$"]
 ,"ref":["[[","]]","\\nameref{","}"]
 ,"code":["<code>","</code>","\\textit{\\verb|","|}"]
 ,"italic":["\'\'","\'\'","\\textit{","}"]}
 
 buf = []
 verbatim = []
+math = []
 source = []
 idx = 0
 
@@ -246,6 +249,7 @@ def sourceReplace():
 	global idx
 	global buf
 	global source
+	global math
 	sList = []
 	idx = 0
 	begin = re.compile("<source lang=\"(\w+)\"[^>]*>")
@@ -270,13 +274,101 @@ def sourceReplace():
 def LatexLatex():
 	global idx
 	global buf
+	global verbatim
+	global source
 	idx = 0
 	while idx < len(buf):
 		line = buf[idx]
-		new = re.sub(r"{{LaTeX/LaTeX|code=([\w{}\s]*)}}", "\\\\begin{verbatim} \1 \\\\end{verbatim}", line)
-		buf[idx] = line
+		it = line.find("{{")
+		jt = line.find("}}")
+		while jt == -1:
+			idx += 1
+			tmp = buf[idx]
+			line += tmp
+			del buf
+			jt = line.find("}}")
+
+		kt = line.find("code=")
+		lt = line.find("|render=")
+		if lt == -1 and kt != -1: # single line
+			buf.insert(idx, line[:it] + "\n")
+			s = []
+			s.append("\\begin{lstlisting}\n")
+			s.append(line[kt+len("code="):jt])
+			s.append("\\end{lstlisting}\n")
+			source.append(s)
+			buf.insert(idx, "argsNoSource\n")
+			buf.insert(idx, line[jt+2:])
+
 		idx+=1
-	
+
+
+def tableChange():
+	global idx
+	global buf
+	idx = 0
+	while idx < len(buf):
+		line = buf[idx]
+		if line[:2] == "{|":
+			del buf[idx]
+			buf.insert(idx, "\\begin{tabular}{ } \\hline\n")
+			idx+=1
+			line = buf[idx]
+			last = False
+			while line[:2] != "|}":
+				print(line)
+				if line[:2] == "|-":
+					buf.insert(idx, "\\\\ \\hline\n")
+					idx+=1
+					last = False
+				else:
+					if last:	
+						buf.insert(idx,"& " + line[1:])
+					else:
+						buf.insert(idx,line[1:])
+
+					last = True
+					idx+=1
+				del buf[idx]
+				line = buf[idx]
+
+			del buf[idx]
+			buf.insert(idx, "\\end{tabular}\n")
+
+		idx+=1
+
+def exampleChange():
+	global idx
+	global buf
+	eList = []
+	idx = 0
+	while idx < len(buf):
+		line = buf[idx]
+		it = line.find("{{LaTeX/Example")
+		if it != -1:
+			eList.append("\\begin{tabular}\n")
+			eList.append("\\begin{verbatim}\n")
+			del buf[idx]
+			line = buf[idx]
+			it = line.find("}}")
+			while it == -1:
+				if -1 == line.find("render") or -1 == line.find("math"):
+					if -1 == line.find("render"):
+						eList.append("\\end{verbatim}\n")
+					if -1 == line.find("math"):
+						eList.append("$\n")
+				else:
+					eList.append(line)
+
+				del buf[idx]
+				if idx >= len(buf):
+					print(eList)
+					done()
+				line = buf[idx]
+
+			eList = []
+		else:
+			idx+=1
 
 def subSingleBackslash():
 	global idx
@@ -321,6 +413,8 @@ def done():
 
 def writeOut():
 	global verbatim
+	global math
+	global source
 	for line in buf:
 		if line == "argsNoSubVerbatim":
 			tmp = verbatim[0]
@@ -334,6 +428,15 @@ def writeOut():
 			for j in tmp:
 				ofile.write(j)
 			continue		
+		'''
+		if line == "argsNoSubMath":
+			tmp = math[0]
+			del math[0]
+			for j in tmp:
+				ofile.write(j)
+			continue		
+		'''
+
 
 		ofile.write(line)
 
@@ -349,9 +452,12 @@ def main():
 
 	LatexLatex()
 	pre()
+	#exampleChange()
 	removeVerbatim()
 	sourceReplace()
 	subSingleBackslash()
+	tableChange()
+	sub(subs["paragraph"])
 	sub(subs["subsubsection"])
 	sub(subs["subsection"])
 	sub(subs["section"])
