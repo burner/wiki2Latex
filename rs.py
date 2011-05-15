@@ -15,9 +15,9 @@ subs = { "section":["==","==","\\section{","}"]
 ,"bold":["\'\'\'","\'\'\'","\\texttt{","}"]
 ,"ttverb":["<tt>\\verb","</tt>","\\texttt{\\verb","}"]
 ,"tt":["<tt>","</tt>","\\texttt{\\verb|","|}"]
-,"tt":["<math>","</math>","$","$"]
+,"math":["<math>","</math>","$","$"]
 ,"ref":["[[","]]","\\nameref{","}"]
-,"code":["<code>","</code>","\\textit{\\verb|","|}"]
+,"code":["<code>","</code>","\\verb|","|"]
 ,"italic":["\'\'","\'\'","\\textit{","}"]}
 
 buf = []
@@ -261,10 +261,14 @@ def sourceReplace():
 			sList.append("\\begin{lstlisting}\n\\lstset{language=" + m.group(0) + "}\n")
 			del buf[idx]
 			line = buf[idx]
-			while line != "</source>\n":
+			it = line.find("</source>")
+			while it == -1:
+				print(line)
 				sList.append(line)
 				del buf[idx]	
 				line = buf[idx]
+				it = line.find("</source>")
+
 			sList.append("\\end{lstlisting}")
 			buf[idx] = "argsNoSubSource"
 			source.append(sList)
@@ -484,7 +488,7 @@ def main():
 	pre()
 	#exampleChange()
 	removeVerbatim()
-	sourceReplace()
+	#sourceReplace()
 	subSingleBackslash()
 	tableChange()
 	sub(subs["paragraph"])
@@ -492,10 +496,10 @@ def main():
 	sub(subs["subsection"])
 	sub(subs["section"])
 	sub(subs["boitalic"])
-	sub(subs["bold"])
+	#sub(subs["bold"])
 	sub(subs["italic"])
 	sub(subs["ttverb"])
-	#sub(subs["tt"])
+	sub(subs["tt"])
 	sub(subs["ref"])
 	sub(subs["code"])
 	#subList()
