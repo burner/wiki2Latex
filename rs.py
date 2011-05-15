@@ -24,6 +24,7 @@ buf = []
 verbatim = []
 math = []
 source = []
+curly = []
 idx = 0
 
 def printBuf():
@@ -276,31 +277,26 @@ def LatexLatex():
 	global buf
 	global verbatim
 	global source
+	global curly
 	idx = 0
 	while idx < len(buf):
 		line = buf[idx]
 		it = line.find("{{")
+		if it == -1:
+			idx+=1
+			continue
 		jt = line.find("}}")
 		while jt == -1:
-			idx += 1
-			tmp = buf[idx]
-			line += tmp
-			del buf
+			tmp = buf[idx+1]
+			line = line[:len(line)-1] + tmp
+			buf[idx] = line
+			del buf[idx+1]
 			jt = line.find("}}")
-
-		kt = line.find("code=")
-		lt = line.find("|render=")
-		if lt == -1 and kt != -1: # single line
-			buf.insert(idx, line[:it] + "\n")
-			s = []
-			s.append("\\begin{lstlisting}\n")
-			s.append(line[kt+len("code="):jt])
-			s.append("\\end{lstlisting}\n")
-			source.append(s)
-			buf.insert(idx, "argsNoSource\n")
-			buf.insert(idx, line[jt+2:])
-
-		idx+=1
+		print(line)
+		curly.append(line[it:jt+2])
+		buf[idx] = line[:it] + line[jt+2:]
+		buf.insert(idx, " argsNoSubCurly ")
+	
 
 
 def tableChange():
@@ -415,6 +411,19 @@ def writeOut():
 	global verbatim
 	global math
 	global source
+	global idx
+	global buf
+	idx = 0
+	while idx < len(buf):
+		line = buf[idx]
+		it = line.find("argsNoSubCurly")
+		while it != -1:
+			line = line[:it] + getNextCurly() + line[it+len("argsNoSubCurly")]
+			it = line.find("argsNoSubCurly")
+
+		buf[idx] = line
+		idx+=1
+
 	for line in buf:
 		if line == "argsNoSubVerbatim":
 			tmp = verbatim[0]
@@ -428,17 +437,37 @@ def writeOut():
 			for j in tmp:
 				ofile.write(j)
 			continue		
-		'''
-		if line == "argsNoSubMath":
-			tmp = math[0]
-			del math[0]
-			for j in tmp:
-				ofile.write(j)
-			continue		
-		'''
-
 
 		ofile.write(line)
+
+
+def getNextCurly():
+	global curly
+	tmp = curly[0]
+	del curly[0]
+	return processCurly(tmp)
+
+def processCurly(cur):
+	if cur[:len("{{LaTeX/LaTeX|code=")] == "{{LaTeX/LaTeX|code=":
+		return "\\verb|"+cur[len("{{LaTeX/LaTeX|code="):len(cur)-2]+"|"
+	if cur[:len("{{LaTeX/Usage|code=")] == "{{LaTeX/Usage|code=":
+		return "\\verb|"+cur[len("{{LaTeX/Usage|code="):len(cur)-2]+"|"
+	if cur[:len("{{LaTeX/Environment|")] == "{{LaTeX/Environment|":
+		return "\\verb|"+cur[len("{{LaTeX/Environment|"):len(cur)-2]+"|"
+	if cur[:len("{{LaTeX/Parameter|")] == "{{LaTeX/Parameter":
+		return "\\texttt{"+cur[len("{{LaTeX/Parameter"):len(cur)-2]+"}"
+	if cur[:len("{{LaTeX/Package|")] == "{{LaTeX/Package|":
+		return "\\textit{"+cur[len("{{LaTeX/Package|"):len(cur)-2]+"}"
+	if cur[:len("{{LaTeX/Example|code=\\[")] == "{{LaTeX/Example|code=\\[":
+		retLine = "\\begin{tabular}{c} \\begin{verbatim}"
+		it = cur.find("|render=")
+		retLine += cur[len("{{LaTeX/Example|code=\\["):it-2] + "\\end{verbatim}"
+		retLine += "\\\\ \\hline\n"
+		retLine += "$ " + cur[it+len("|render=<math>"):len(cur)-len("</math>")-2] + " $ \\end{tabular}"
+		return retLine
+		
+	else:
+		return cur
 
 def main():
 	global ifile
@@ -451,6 +480,7 @@ def main():
 	print("after read file")
 
 	LatexLatex()
+	print("after latex latex")
 	pre()
 	#exampleChange()
 	removeVerbatim()
@@ -465,13 +495,17 @@ def main():
 	sub(subs["bold"])
 	sub(subs["italic"])
 	sub(subs["ttverb"])
-	sub(subs["tt"])
+	#sub(subs["tt"])
 	sub(subs["ref"])
 	sub(subs["code"])
-	subList()
+	#subList()
 	print(buf)
 
 	writeOut()
+
+	print("\n\n\n")
+	for x in curly:
+		print(processCurly(x))
 
 
 if __name__ == "__main__":
