@@ -7,7 +7,8 @@ mainfile = ""
 
 oneWordSubs = {"<br>":"\\\\"}
 
-subs = { "section":["==","==","\\section{","}"]
+subs = { "part":["=","=","\\section{","}"]
+,"section":["==","==","\\section{","}"]
 ,"subsection":["===","===","\\subsection{","}"]
 ,"subsubsection":["====","====","\\subsubsection{","}"]
 ,"paragraph":["=====","=====","\\paragraph{","}"]
@@ -15,6 +16,7 @@ subs = { "section":["==","==","\\section{","}"]
 ,"bold":["\'\'\'","\'\'\'","\\texttt{","}"]
 ,"ttverb":["<tt>\\verb","</tt>","\\texttt{\\verb","}"]
 ,"tt":["<tt>","</tt>","\\texttt{\\verb|","|}"]
+,"source":["<source>","</source>","\\begin{lstlisting}","\\end{lstlistin}"]
 ,"math":["<math>","</math>","$","$"]
 ,"ref":["[[","]]","\\nameref{","}"]
 ,"code":["<code>","</code>","\\verb|","|"]
@@ -253,28 +255,25 @@ def sourceReplace():
 	global math
 	sList = []
 	idx = 0
-	begin = re.compile("<source lang=\"(\w+)\"[^>]*>")
 	while idx < len(buf):
 		line = buf[idx]
-		m = begin.match(line)
-		if m is not None:
-			sList.append("\\begin{lstlisting}\n\\lstset{language=" + m.group(0) + "}\n")
-			del buf[idx]
-			line = buf[idx]
-			it = line.find("</source>")
-			while it == -1:
-				print(line)
-				sList.append(line)
-				del buf[idx]	
-				line = buf[idx]
-				it = line.find("</source>")
-
-			sList.append("\\end{lstlisting}")
-			buf[idx] = "argsNoSubSource"
-			source.append(sList)
-			sList = []
-		else:
+		it = line.find("<source")
+		if it == -1:
 			idx+=1
+			continue
+		jt = line.find("</source>")
+		while jt == -1:
+			tmp = buf[idx+1]
+			line = line[:len(line)] + tmp
+			buf[idx] = line
+			del buf[idx+1]
+			jt = line.find("</source>")
+		print(line)
+		sList.append(line[it:jt+len("</source>")])
+		buf[idx] = line[:it] + line[jt+len("</source>"):]
+		buf.insert(idx, " argsNoSubSource ")
+		source.append(sList)
+		sList = []
 
 def LatexLatex():
 	global idx
@@ -428,6 +427,17 @@ def writeOut():
 		buf[idx] = line
 		idx+=1
 
+	idx = 0
+	while idx < len(buf):
+		line = buf[idx]
+		it = line.find("argsNoSubSource")
+		while it != -1:
+			line = line[:it] + getNextSource() + line[it+len("argsNoSubSource")]
+			it = line.find("argsNoSubSource")
+
+		buf[idx] = line
+		idx+=1
+
 	for line in buf:
 		if line == "argsNoSubVerbatim":
 			tmp = verbatim[0]
@@ -435,15 +445,20 @@ def writeOut():
 			for j in tmp:
 				ofile.write(j)
 			continue		
-		if line == "argsNoSubSource":
-			tmp = source[0]
-			del source[0]
-			for j in tmp:
-				ofile.write(j)
-			continue		
 
 		ofile.write(line)
 
+def getNextSource():
+	global source
+	tmp = source[0]
+	del source[0]
+	print(tmp)
+	ret = "\\begin{verbatim}\n"
+	it = tmp.find(">")
+	ret += tmp[it+1:len("</source>")] + "\n"
+	ret += "\\end{verbatim}\n"
+	print(ret)
+	done()
 
 def getNextCurly():
 	global curly
@@ -488,13 +503,14 @@ def main():
 	pre()
 	#exampleChange()
 	removeVerbatim()
-	#sourceReplace()
+	sourceReplace()
 	subSingleBackslash()
 	tableChange()
 	sub(subs["paragraph"])
 	sub(subs["subsubsection"])
 	sub(subs["subsection"])
 	sub(subs["section"])
+	sub(subs["part"])
 	sub(subs["boitalic"])
 	#sub(subs["bold"])
 	sub(subs["italic"])
