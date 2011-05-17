@@ -15,7 +15,7 @@ subs = { "part":["=","=","\\section{","}"]
 ,"boitalic":["\'\'\'\'\'","\'\'\'\'\'","\\texttt{\\textit{","}}"]
 ,"bold":["\'\'\'","\'\'\'","\\texttt{","}"]
 ,"ttverb":["<tt>\\verb","</tt>","\\texttt{\\verb","}"]
-,"tt":["<tt>","</tt>","\\texttt{\\verb|","|}"]
+,"tt":["<tt>","</tt>","\\texttt{","}"]
 ,"source":["<source>","</source>","\\begin{lstlisting}","\\end{lstlistin}"]
 ,"math":["<math>","</math>","$","$"]
 ,"ref":["[[","]]","\\nameref{","}"]
@@ -253,7 +253,6 @@ def sourceReplace():
 	global buf
 	global source
 	global math
-	sList = []
 	idx = 0
 	while idx < len(buf):
 		line = buf[idx]
@@ -268,12 +267,13 @@ def sourceReplace():
 			buf[idx] = line
 			del buf[idx+1]
 			jt = line.find("</source>")
-		print(line)
-		sList.append(line[it:jt+len("</source>")])
+		source.append(line[it:jt+len("</source>")])
+		if line[it:jt+len("</source>")] == None or len(line[it:jt+len("</source>")]) < 2:
+			print(idx)
+			done()
+			
 		buf[idx] = line[:it] + line[jt+len("</source>"):]
 		buf.insert(idx, " argsNoSubSource ")
-		source.append(sList)
-		sList = []
 
 def LatexLatex():
 	global idx
@@ -432,7 +432,10 @@ def writeOut():
 		line = buf[idx]
 		it = line.find("argsNoSubSource")
 		while it != -1:
-			line = line[:it] + getNextSource() + line[it+len("argsNoSubSource")]
+			if line[:it] == None:
+				print(line)
+				done()
+			line = line[:it] + getNextSource() + line[it+len("argsNoSubSource"):]
 			it = line.find("argsNoSubSource")
 
 		buf[idx] = line
@@ -453,12 +456,12 @@ def getNextSource():
 	tmp = source[0]
 	del source[0]
 	print(tmp)
-	ret = "\\begin{verbatim}\n"
+	ret = "\\begin{lstlisting}\n"
 	it = tmp.find(">")
-	ret += tmp[it+1:len("</source>")] + "\n"
-	ret += "\\end{verbatim}\n"
+	ret += tmp[it+1:len(tmp)-len("</source>")] + "\n"
+	ret += "\\end{lstlisting}\n"
 	print(ret)
-	done()
+	return ret
 
 def getNextCurly():
 	global curly
