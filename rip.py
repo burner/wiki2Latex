@@ -1,9 +1,14 @@
 #!/usr/bin/python
 import urllib.request, urllib.error
 import re
+import sys
 
 wikibook = ["http://en.wikibooks.org/w/index.php?title=","&action=edit"]
 wikipedia = ["http://en.wikipedia.org/w/index.php?title=","&action=edit"]
+
+childs = dict()
+blacklist = dict()
+images = []
 
 def download(url, page):
 	save = []
@@ -74,23 +79,45 @@ def removeStickImage(line):
 
 	return line[:it+4]
 
-def getImages(line):
+def getImagesFile(line):
+	ret = []
+	it = 0
+	it = line[it:].find("[[File:")
+	while it != -1:
+		#print(line)
+		jt = line[it:].find("]]") + it
+		#print(line[it+len("[[File:"):jt])
+		s = makeUnderScore(line[it+len("[[File:"):jt])
+		r = removeStickImage(s)
+		#print(s)
+		#print(r)
+		#print(len(line), it, jt)
+		ret.append(r)
+		it = line[jt+len("]]"):].find("[[File:")
+
+	return ret
+
+def getImagesImage(line):
 	ret = []
 	it = 0
 	it = line[it:].find("[[Image:")
 	while it != -1:
 		#print(line)
 		jt = line[it:].find("]]") + it
-		print(line[it+len("[[Image:"):jt])
+		#print(line[it+len("[[Image:"):jt])
 		s = makeUnderScore(line[it+len("[[Image:"):jt])
 		r = removeStickImage(s)
-		print(s)
-		print(r)
-		print(len(line), it, jt)
+		#print(s)
+		#print(r)
+		#print(len(line), it, jt)
 		ret.append(r)
 		it = line[jt+len("]]"):].find("[[Image:")
 
 	return ret
+
+def getImages(line):
+	s = getImagesFile(line)
+	return s.extend(getImagesImage(line))
 
 def checkIfPureLink(line):
 	it = line.find(":")
@@ -109,12 +136,12 @@ def getLinks(line):
 	it = line[it:].find("[[")
 	while it != -1: 
 		jt = line[it+len("[["):].find("]]") + it + len("[[")
-		print(it,jt,line[it+len("[["):jt])
+		#print(it,jt,line[it+len("[["):jt])
 		#print(line)
 		s = makeUnderScore(line[it+len("[["):jt])
 		r = checkIfPureLink(s)
 		if r is not None:
-			print(s, r)
+			#print(s, r)
 			ret.append(r)
 		it = line[jt+len("]]"):].find("[[") 
 		if it == -1:
@@ -123,26 +150,46 @@ def getLinks(line):
 
 	return ret
 
+def setVar():
+	global childs
+	global images
+	global blacklist
+
+def askUser(links, depth, childs, blacklist):
+	for x in links:
+		if blacklist.get(x) is not None:
+			continue
+
+		print("Follow not" ,x)
+		i = sys.stdin.readline()
+		if i == "n" or i == "no":
+			if childs.get(x) is None:
+				childs[x] = depth
+		else:
+			blacklist[x] = "do not search again"
+			continue
 
 if __name__ == "__main__":
+	setVar()
 	#name = "LaTeX/Tables"
-	name = "Data_structure"
-	s = download(wikipedia, name)
+	start = "Data_structure"
+	depth = 1
 
-	images = []
-	links = []
+	childs[start] = depth	
 	
-	f = open(makeName(name), "w")
-	cnt = 0
-	for i in s:
-		f.write(replaceHtml(i))
-		#for j in getImages(i):
-		#	images.append(j)
-		for j in getLinks(i):
-			links.append(j)
-		cnt+=1
+	while len(childs) > 0:
+		name = childs.popitem()
+		s = download(wikipedia, name[0])
+		f = open(makeName(name[0]), "w")
+		for i in s:
+			f.write(replaceHtml(i))
+			img = getImages(i)
+			if img is not None:
+				images.extend(img)
+			print(i)
+			if name[1] > 0:
+				askUser(getLinks(i), name[1]-1, childs, blacklist)
 
-	f.close()
+		#print(childs)
+		f.close()
 
-	#print(images)
-	print(links)
