@@ -6,10 +6,6 @@ import sys
 wikibook = ["http://en.wikibooks.org/w/index.php?title=","&action=edit"]
 wikipedia = ["http://en.wikipedia.org/w/index.php?title=","&action=edit"]
 
-childs = dict()
-blacklist = dict()
-images = []
-
 def download(url, page):
 	save = []
 	user_agent ="Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11" 
@@ -71,9 +67,15 @@ def removeStickImage(line):
 	#print(line)
 	it = line.find(".png")
 	if it == -1:
+		it = line.find(".PNG")
+	if it == -1:
 		it = line.find(".jpg")
 	if it == -1:
+		it = line.find(".JPG")
+	if it == -1:
 		it = line.find(".svg")
+	if it == -1:
+		it = line.find(".SVG")
 	if it == -1:
 		return line
 
@@ -116,8 +118,15 @@ def getImagesImage(line):
 	return ret
 
 def getImages(line):
+	ret = []
 	s = getImagesFile(line)
-	return s.extend(getImagesImage(line))
+	r = getImagesImage(line)
+	for i in s:
+		ret.append(i)
+	for i in r:
+		ret.append(s)
+	print("\n\n","images",ret,line.find("[[File:"),line.find("[[Image:"),"\n\n")
+	return ret
 
 def checkIfPureLink(line):
 	it = line.find(":")
@@ -159,18 +168,32 @@ def askUser(links, depth, childs, blacklist):
 	for x in links:
 		if blacklist.get(x) is not None:
 			continue
+		if childs.get(x) is not None:
+			continue
 
 		print("Follow not" ,x)
 		i = sys.stdin.readline()
-		if i == "n" or i == "no":
-			if childs.get(x) is None:
-				childs[x] = depth
+		if -1 != i.find("y") or -1 != i.find("yes"):
+			#print(i)
+			childs[x] = depth
 		else:
 			blacklist[x] = "do not search again"
 			continue
 
+def downloadImages(images, url):
+	for i in images:	
+		user_agent ="Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11" 
+		head={'User-Agent':user_agent,}
+		
+		r = urllib.request.Request(url[0] + page + url[1])
+		r.add_header("User-Agent", user_agent)
+		s = urllib.request.urlopen(r)
+
 if __name__ == "__main__":
-	setVar()
+	childs = {}
+	blacklist = {}
+	images = []
+
 	#name = "LaTeX/Tables"
 	start = "Data_structure"
 	depth = 1
@@ -185,11 +208,18 @@ if __name__ == "__main__":
 			f.write(replaceHtml(i))
 			img = getImages(i)
 			if img is not None:
+				print("another found")
 				images.extend(img)
-			print(i)
+			else:
+				print("another empty")
+			#print(i)
 			if name[1] > 0:
 				askUser(getLinks(i), name[1]-1, childs, blacklist)
+				print("all childs",childs)
+				print("all black",blacklist)
 
 		#print(childs)
 		f.close()
+
+	print("images",images)
 
