@@ -2,9 +2,11 @@
 import urllib.request, urllib.error
 import re
 import sys
+import subprocess
 
 wikibook = ["http://en.wikibooks.org/w/index.php?title=","&action=edit"]
 wikipedia = ["http://en.wikipedia.org/w/index.php?title=","&action=edit"]
+wikifile = "http://en.wikipedia.org/wiki/File:"
 
 def download(url, page):
 	save = []
@@ -86,14 +88,9 @@ def getImagesFile(line):
 	it = 0
 	it = line[it:].find("[[File:")
 	while it != -1:
-		#print(line)
 		jt = line[it:].find("]]") + it
-		#print(line[it+len("[[File:"):jt])
 		s = makeUnderScore(line[it+len("[[File:"):jt])
 		r = removeStickImage(s)
-		#print(s)
-		#print(r)
-		#print(len(line), it, jt)
 		ret.append(r)
 		it = line[jt+len("]]"):].find("[[File:")
 
@@ -104,14 +101,9 @@ def getImagesImage(line):
 	it = 0
 	it = line[it:].find("[[Image:")
 	while it != -1:
-		#print(line)
 		jt = line[it:].find("]]") + it
-		#print(line[it+len("[[Image:"):jt])
 		s = makeUnderScore(line[it+len("[[Image:"):jt])
 		r = removeStickImage(s)
-		#print(s)
-		#print(r)
-		#print(len(line), it, jt)
 		ret.append(r)
 		it = line[jt+len("]]"):].find("[[Image:")
 
@@ -145,12 +137,9 @@ def getLinks(line):
 	it = line[it:].find("[[")
 	while it != -1: 
 		jt = line[it+len("[["):].find("]]") + it + len("[[")
-		#print(it,jt,line[it+len("[["):jt])
-		#print(line)
 		s = makeUnderScore(line[it+len("[["):jt])
 		r = checkIfPureLink(s)
 		if r is not None:
-			#print(s, r)
 			ret.append(r)
 		it = line[jt+len("]]"):].find("[[") 
 		if it == -1:
@@ -174,29 +163,40 @@ def askUser(links, depth, childs, blacklist):
 		print("Follow not" ,x)
 		i = sys.stdin.readline()
 		if -1 != i.find("y") or -1 != i.find("yes"):
-			#print(i)
 			childs[x] = depth
 		else:
 			blacklist[x] = "do not search again"
 			continue
 
 def downloadImages(images, url):
+	print("download Images")
 	for i in images:	
 		user_agent ="Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11" 
 		head={'User-Agent':user_agent,}
-		
-		r = urllib.request.Request(url[0] + page + url[1])
+		r = urllib.request.Request(url + i)
+		print(url + i)
 		r.add_header("User-Agent", user_agent)
 		s = urllib.request.urlopen(r)
+		for line in s:
+			jine = line.decode('utf-8')
+			it = jine.find("fullImageLink")
+			if it == -1:
+				continue
+			jt = jine.find("href=\"", it)
+			kt = jine.find("\">", jt)
+			downloadurl = jine[jt+len("href=\""):kt]
+			print(downloadurl)
+			subprocess.Popen("wget "+downloadurl, shell=True)
+			
 
 if __name__ == "__main__":
 	childs = {}
 	blacklist = {}
 	images = []
 
-	#name = "LaTeX/Tables"
-	start = "Data_structure"
-	depth = 1
+	#start = "Data_structure"
+	start = "cathedral"
+	depth = 0
 
 	childs[start] = depth	
 	
@@ -222,4 +222,5 @@ if __name__ == "__main__":
 		f.close()
 
 	print("images",images)
+	downloadImages(images, wikifile)
 
