@@ -3,17 +3,25 @@ import urllib.request, urllib.error
 import re
 import sys
 import subprocess
+import os
 
 wikibook = ["http://en.wikibooks.org/w/index.php?title=","&action=edit"]
 wikipedia = ["http://en.wikipedia.org/w/index.php?title=","&action=edit"]
 wikifile = "http://en.wikipedia.org/wiki/File:"
 
+def is_ascii(s):
+	return all(ord(c) < 128 for c in s)
+
 def download(url, page):
 	save = []
 	user_agent ="Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11" 
 	head={'User-Agent':user_agent,}
+
+	if not is_ascii(page):
+		return
 	
 	r = urllib.request.Request(url[0] + page + url[1])
+	print(url[0] +page+url[1])
 	r.add_header("User-Agent", user_agent)
 	s = urllib.request.urlopen(r)
 
@@ -21,12 +29,12 @@ def download(url, page):
 
 	for line in s:
 		jine = line.decode('utf-8')
-		it = jine.find("name=\"wpTextbox1\">")
+		it = jine.find("name=\"wpTextbox1\"")
 		if it != -1:
-			save.append(jine[it+len("name=\"wpTextbox1\">"):])
+			save.append(jine[it+len("name=\"wpTextbox1\""):])
 			good = True
 	
-		it = jine.find("</textarea><div id=\"editpage-copywarn\">")
+		it = jine.find("</textarea>")
 		if it != -1:
 			save.append(jine[:it])
 			good = False
@@ -34,6 +42,7 @@ def download(url, page):
 		if good:
 			save.append(jine)
 
+	print("len save", len(save))
 	return save
 
 def replaceHtml(line):
@@ -87,12 +96,16 @@ def getImagesFile(line):
 	ret = []
 	it = 0
 	it = line[it:].find("[[File:")
-	while it != -1:
-		jt = line[it:].find("]]") + it
+	cnt = 0
+	while it != -1 and cnt < 5:
+		jt = line[it:].find("]]",it)
+		print(it,jt,line)
 		s = makeUnderScore(line[it+len("[[File:"):jt])
 		r = removeStickImage(s)
-		ret.append(r)
+		if r not in ret:
+			ret.append(r)
 		it = line[jt+len("]]"):].find("[[File:")
+		cnt+=1
 
 	return ret
 
@@ -100,12 +113,15 @@ def getImagesImage(line):
 	ret = []
 	it = 0
 	it = line[it:].find("[[Image:")
-	while it != -1:
+	cnt = 0
+	while it != -1 and cnt < 5:
 		jt = line[it:].find("]]") + it
 		s = makeUnderScore(line[it+len("[[Image:"):jt])
 		r = removeStickImage(s)
-		ret.append(r)
+		if r not in ret:
+			ret.append(r)
 		it = line[jt+len("]]"):].find("[[Image:")
+		cnt+=1
 
 	return ret
 
@@ -153,24 +169,26 @@ def setVar():
 	global images
 	global blacklist
 
-def askUser(links, depth, childs, blacklist):
+def askUser(links, depth, childs, blacklist,cur):
 	for x in links:
 		if blacklist.get(x) is not None:
 			continue
 		if childs.get(x) is not None:
 			continue
 
-		print("Follow not" ,x)
-		i = sys.stdin.readline()
-		if -1 != i.find("y") or -1 != i.find("yes"):
-			childs[x] = depth
-		else:
-			blacklist[x] = "do not search again"
-			continue
+		#print("Follow not" ,x)
+		#i = sys.stdin.readline()
+		#if -1 != i.find("y") or -1 != i.find("yes"):
+		childs[x] = depth
+		#else:
+		#	blacklist[x] = "do not search again"
+		#	continue
 
 def downloadImages(images, url):
 	print("download Images")
 	for i in images:	
+		if not isinstance(i, str):
+			continue
 		user_agent ="Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11" 
 		head={'User-Agent':user_agent,}
 		r = urllib.request.Request(url + i)
@@ -195,32 +213,36 @@ if __name__ == "__main__":
 	images = []
 
 	#start = "Data_structure"
-	start = "cathedral"
-	depth = 0
+	start = "Mathematics"
+	depth = 1
 
 	childs[start] = depth	
+	os.mkdir(start)
+	os.chdir(start)
 	
 	while len(childs) > 0:
 		name = childs.popitem()
+		blacklist[name] = 0
+		print("ripping",name[0])
 		s = download(wikipedia, name[0])
-		f = open(makeName(name[0]), "w")
+		f = open(makeName(name[0]) + ".w", "w")
+		if s is None:
+			continue
 		for i in s:
-			f.write(replaceHtml(i))
-			img = getImages(i)
+			rp = replaceHtml(i)
+			f.write(rp)
+			img = getImages(rp)
 			if img is not None:
-				print("another found")
 				images.extend(img)
-			else:
-				print("another empty")
 			#print(i)
 			if name[1] > 0:
-				askUser(getLinks(i), name[1]-1, childs, blacklist)
-				print("all childs",childs)
-				print("all black",blacklist)
+				askUser(getLinks(rp), name[1]-1, childs, blacklist, name[0])
+
+		print("childs ", len(childs), "blacklist ", len(blacklist))
+
 
 		#print(childs)
 		f.close()
 
-	print("images",images)
+	print("images",len(images),images)
 	downloadImages(images, wikifile)
-

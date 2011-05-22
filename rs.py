@@ -369,6 +369,86 @@ def exampleChange():
 		else:
 			idx+=1
 
+def makeUnderScore(name):
+	ret = ""
+	for x in name:
+		if x == ' ':
+			ret += '_'
+		else:
+			ret += x
+	return ret
+
+def removeStickImage(line):
+	#print(line)
+	it = line.find(".png")
+	if it == -1:
+		it = line.find(".PNG")
+	if it == -1:
+		it = line.find(".jpg")
+	if it == -1:
+		it = line.find(".JPG")
+	if it == -1:
+		it = line.find(".svg")
+	if it == -1:
+		it = line.find(".SVG")
+	if it == -1:
+		return line
+
+	return line[:it+4]
+
+def imageChange():
+	global idx
+	global buf
+	eList = []
+	idx = 0
+	while idx < len(buf):
+		line = buf[idx]
+		it = line.find("[[File:")
+		if it == -1:
+			idx+=1
+			continue
+		jt = line.find(".png")
+		if jt == -1:
+			jt = line.find(".PNG")
+		if jt == -1:
+			jt = line.find(".jpg")
+		if jt == -1:
+			jt = line.find(".JPG")
+		if jt == -1:
+			jt = line.find(".svg")
+		if jt == -1:
+			jt = line.find(".SVG")
+		if jt == -1:
+			continue
+		
+		tmp = line[:it]
+		tmp += "\\begin{figure}[!h]\n"
+		tmp += "\\includegraphics[width=0.5\\textwidth]{"
+		image = removeStickImage(makeUnderScore(line[it+len("[[File:"):jt]))
+		image = image[:len(image)]
+		tmp += image
+		tmp += "}\n\\end{figure}\n"
+		tmp += line[jt+len("]]"):]
+		buf[idx] = tmp
+
+def refChange():
+	global idx
+	global buf
+	eList = []
+	idx = 0
+	while idx < len(buf):
+		line = buf[idx]
+		it = line.find("[[")
+		if it == -1:
+			idx+=1
+			continue
+		jt = line.find("]]", it)
+		
+		tmp = line[:it]
+		tmp += line[it+len("[["):jt]
+		tmp += line[jt+len("]]"):]
+		buf[idx] = tmp
+
 def subSingleBackslash():
 	global idx
 	global buf
@@ -519,9 +599,11 @@ def main():
 	sub(subs["italic"])
 	sub(subs["ttverb"])
 	sub(subs["tt"])
-	sub(subs["ref"])
+	#sub(subs["ref"])
 	sub(subs["code"])
 	#subList()
+	imageChange()
+	refChange()
 	print(buf)
 
 	writeOut()
